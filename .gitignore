@@ -1,0 +1,9 @@
+
+/bin
+/obj
+/ctests
+/verbose
+
+.gdb_history
+Session.vim
+
