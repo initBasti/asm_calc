@@ -1,22 +1,35 @@
-LINK=ld
-ASM=nasm
+COMPILE=gcc
+READ=gcc
 
-LINK_FLAG=-m elf_i386
-ASM_FLAG=-f elf32 -g
+COMPILE_FLAG=-Wall -Wextra -O3 -g
+READ_FLAG=-Wall -Wextra -fverbose-asm -march=haswell -O3 -S
 
 SRC=src
 OBJ=obj
+VER=verbose
 BIN=bin
 
 BIN_NAME=$(BIN)/calc
 
-SOURCES=$(wildcard $SRC/*.asm)
-OBJECTS=$(SOURCES:$SRC/*.asm=$OBJ/*.o)
+SOURCES=$(wildcard $(SRC)/*.S)
+$(info $$SOURCES is [${SOURCES}])
+#OBJECTS=$(SOURCES:$(SRC)/*.S=$(OBJ)/*.o)
+#$(info $$OBJECTS is [${OBJECTS}])
 
 all: $(BIN_NAME)
 
-$(BIN_NAME): $(OBJECTS)
-	$(LINK) $(LINK_FLAG) $< -o $@
+read: $(VER)/main_verbose $(VER)/print_verbose
 
-$(OBJECTS): $(SOURCES)
-	$(ASM) $(ASM_FLAG) $< -o $@
+$(BIN_NAME): $(SOURCES)
+	$(COMPILE) $(COMPILE_FLAG) $^ -o $@
+
+$(VER)/%_verbose: $(SRC)/%.S
+	$(READ) $(READ_FLAG) $^ > $@ 2>&1
+
+#$(OBJ)/%.o: $(SRC)/%.S
+#	$(ASM) $(ASM_FLAG) $< -o $@
+
+clean:
+	rm $(OBJ)/*.o
+	rm $(BIN)/*
+	rm $(VER)/*
