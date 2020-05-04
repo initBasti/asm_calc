@@ -1,6 +1,7 @@
 stringcheck:
     pushq %rbp
     movq %rsp, %rbp
+    pushq %rdi
     movzbl (%rdi), %eax /* move the last 32bit of rdi into eax with zero extension*/
     testb %al, %al /* if the char is a null terminator return 0 */
     je .scexit_success
@@ -25,16 +26,19 @@ stringcheck:
 
 .scexit_success:
     movl $0x00, %eax
+    popq %rdi
     popq %rbp
     ret
 
 .scexit_fail:
     movl $0x01, %eax
+    popq %rdi
     popq %rbp
     ret
-    
+
 opcheck:
     pushq %rbp
+    pushq %rdi
 
     cmpb $0x2B, %dil
     je .ocexit_success
@@ -42,10 +46,12 @@ opcheck:
     je .ocexit_success
 
     movl $1, %eax
+    popq %rdi
     popq %rbp
     ret
 
 .ocexit_success:
     movl $0, %eax
+    popq %rdi
     popq %rbp
     ret
