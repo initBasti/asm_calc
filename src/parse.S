@@ -42,8 +42,8 @@ parseint:
 /* =====================================================
  * a ^ b
  * parameter:
- *  a (base) = rdi
- *  b (exponent) = rsi
+ *  a (base) => rdi
+ *  b (exponent) => rsi
  */
 power:
     pushq %r8
@@ -68,7 +68,7 @@ power:
 /* =====================================================
  * Get the length of a string
  * parameter:
- *  string (pointer to first char) = rdi
+ *  string (pointer to first char) => rdi
  */
 getlen:
     pushq %r8
@@ -84,5 +84,36 @@ getlen:
     movl %r8d, %eax
     nop
     popq %r8
+    retq
+
+/* =====================================================
+ * Get the number of digits in a number
+ *
+ * As long as the given integer is greater than zero, assign the quotient
+ * of the division: given integer / 10 to itself.
+ *
+ * parameter:
+ *  integer => rdi
+ */
+ getnumofdigits:
+    pushq %rbx
+    pushq %r14
+    pushq %r15
+    xorq %r8, %r8
+
+    /* idivl requires edx:eax as the dividend, zero edx and sign extend the number */
+    movzbl %dil, %eax
+.L30:
+    cqto
+    movl $10, %ebx
+    idivl %ebx
+    incq %r8
+    cmpl $0, %eax
+    ja .L30
+    movl %r8d, %eax
+    nop
+    popq %r15
+    popq %r14
+    popq %rbx
     retq
 
