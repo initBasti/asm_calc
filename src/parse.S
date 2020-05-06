@@ -10,7 +10,7 @@ parseint:
     movq %rdi, %r8
     callq getlen
     movl %eax, %r9d
-.L1:
+.Lparseint_loop:
     subq $1, %r9
 
     /* get the correct power of 10 for the digit
@@ -28,7 +28,7 @@ parseint:
 
     incq %r8
     cmpq $0, %r9
-    ja .L1
+    ja .Lparseint_loop
 
     /* add result to eax */
     movl %r10d, %eax
@@ -50,16 +50,16 @@ power:
     movzbl %dil, %eax
     movzbl %sil, %ebx
     movl $1, %r8d
-.L10:
+.Lpower_loop:
     movl %ebx, %ecx
     andl $1, %ecx
-    jz .L11
+    jz .Levennumber
     imull %eax, %r8d
-.L11:
+.Levennumber:
     imull %eax, %eax
     shrl $1, %ebx
     cmpl $0, %ebx
-    ja .L10
+    ja .Lpower_loop
     movl %r8d, %eax
     nop
     popq %r8
@@ -73,14 +73,14 @@ power:
 getlen:
     pushq %r8
     xorl %r8d, %r8d
-.L20:
+.Lgetlen_loop:
     movzbl (%rdi), %eax
     testb %al, %al
-    je .L21
+    je .Lfound_nullterminator
     incl %r8d
     incq %rdi
-    jmp .L20
-.L21:
+    jmp .Lgetlen_loop
+.Lfound_nullterminator:
     movl %r8d, %eax
     nop
     popq %r8
@@ -97,23 +97,18 @@ getlen:
  */
  getnumofdigits:
     pushq %rbx
-    pushq %r14
-    pushq %r15
-    xorq %r8, %r8
 
     /* idivl requires edx:eax as the dividend, zero edx and sign extend the number */
     movzbl %dil, %eax
-.L30:
-    cqto
     movl $10, %ebx
+.Lgetnumofdigits_loop:
+    cqto
     idivl %ebx
     incq %r8
     cmpl $0, %eax
-    ja .L30
+    ja .Lgetnumofdigits_loop
     movl %r8d, %eax
     nop
-    popq %r15
-    popq %r14
     popq %rbx
     retq
 
