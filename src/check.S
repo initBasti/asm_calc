@@ -41,17 +41,18 @@ opcheck:
     pushq %rdi
 
     cmpb $0x2B, %dil
+    movl $1, %eax
     je .ocexit_success
     cmpb $0x2D, %dil
+    movl $2, %eax
     je .ocexit_success
 
-    movl $1, %eax
+    movl $0, %eax
     popq %rdi
     popq %rbp
     ret
 
 .ocexit_success:
-    movl $0, %eax
     popq %rdi
     popq %rbp
     ret
