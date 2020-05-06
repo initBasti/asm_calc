@@ -99,7 +99,8 @@ getlen:
     pushq %rbx
 
     /* idivl requires edx:eax as the dividend, zero edx and sign extend the number */
-    movzbl %dil, %eax
+    xorl %eax, %eax
+    movq %rdi, %rax
     movl $10, %ebx
 .Lgetnumofdigits_loop:
     cqto

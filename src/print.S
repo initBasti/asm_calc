@@ -27,6 +27,8 @@ printstr:
  * print a integer
  * parameter:
  *  rdi => integer
+ *
+ * Note: currently works with < 64bit numbers
  */
 printint:
     pushq %rbp
@@ -47,10 +49,11 @@ printint:
     movq %r8, %rsi
     callq power
     movl %eax, %ebx
-    movzbl %r9b, %eax
+    xorl %eax, %eax
+    movl %r9d, %eax
     cqto
     idivl %ebx
-    movl %eax, %r10d
+    movq %rax, %r10
     addl $0x30, %eax
     movl %eax, -4(%rbp)
     leaq -4(%rbp), %rdi
