@@ -46,6 +46,12 @@ opcheck:
     cmpb $0x2D, %dil
     movl $2, %eax
     je .ocexit_success
+    cmpb $0x78, %dil
+    movl $3, %eax
+    je .ocexit_success
+    cmpb $0x2F, %dil
+    movl $4, %eax
+    je .ocexit_success
 
     movl $0, %eax
     popq %rdi

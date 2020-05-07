@@ -14,6 +14,10 @@ operation:
     je .Laddition
     cmpl $2, %edx
     je .Lsubstraction
+    cmpl $3, %edx
+    je .Lmultiplication
+    cmpl $4, %edx
+    je .Ldivision
 .Laddition:
     addl %edi, %eax
     addl %esi, %eax
@@ -22,6 +26,15 @@ operation:
     addl %edi, %eax
     subl %esi, %eax
     jmp .Loperation_exit
+.Lmultiplication:
+    imull %edi, %esi
+    movq %rsi, %rax
+    jmp .Loperation_exit
+.Ldivision:
+    movl %edi, %eax
+    cqto
+    idivl %esi
+    movl %edx, %r15d
 .Loperation_exit:
     nop
     retq
