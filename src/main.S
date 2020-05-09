@@ -18,6 +18,7 @@ main:
 
 .Lfirst_num:
     pushq %rbx
+    xorq %r12, %r12
     xorq %r13, %r13
     xorq %r14, %r14
     xorq %r15, %r15
@@ -31,7 +32,7 @@ main:
     testl %eax, %eax
     jne .Lsecond_num
     callq parseint
-    movl %eax, %r13d
+    movl %eax, %r12d
 .Lsecond_num:
     movq 24(%rbx), %rbp
     movq %rbp, %rdi
@@ -39,18 +40,17 @@ main:
     testl %eax, %eax
     jne .Loperator
     callq parseint
-    movl %eax, %r14d
+    movl %eax, %r13d
 .Loperator:
     movq 16(%rbx), %rbp
     movsbl 0(%rbp), %edi
     callq opcheck
     cmpl $0, %eax
     je .Lexit
-    movq %r13, %rdi
-    movq %r14, %rsi
+    movq %r12, %rdi
+    movq %r13, %rsi
     movl %eax, %edx
     callq operation
-    movl %eax, %r15d
 .Lprintoperation:
     movq 8(%rbx), %rdi
     callq printstr
@@ -58,10 +58,19 @@ main:
     callq printstr
     movq 24(%rbx), %rdi
     callq printstr
+    /* print '=' */
     movl $0x3D, -4(%rbp)
     leaq -4(%rbp), %rdi
     callq printstr
 .Lresult:
+    movq %r14, %rdi
+    callq printint
+    cmpq $0, %r15
+    je .Lexit
+    /* print ',' */
+    movl $0x2E, -4(%rbp)
+    leaq -4(%rbp), %rdi
+    callq printstr
     movq %r15, %rdi
     callq printint
     jmp .Lexit
