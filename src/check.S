@@ -22,6 +22,8 @@ stringcheck:
     jbe .next
 
     movl $1, %eax /* if char -48 > 9 return 1 */
+    popq %rdi
+    popq %rbp
     ret
 
 .scexit_success:
