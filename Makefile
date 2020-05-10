@@ -1,7 +1,7 @@
 COMPILE=gcc
 READ=gcc
 
-COMPILE_FLAG=-Wall -Wextra -O3 -g
+COMPILE_FLAG=-Wall -Wextra -O3 -g -no-pie
 READ_FLAG=-Wall -Wextra -fverbose-asm -march=haswell -O3 -S
 
 SRC=src

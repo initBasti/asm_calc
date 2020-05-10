@@ -1,5 +1,9 @@
 .globl main
-.data
+.section .rodata
+invalidoperator:
+    .string "Invalid operator\n"
+invalidnumber:
+    .string "Invalid number\n"
 .text
 
 .include "src/print.S"
@@ -30,7 +34,7 @@ main:
     movq %rbp, %rdi
     callq stringcheck
     testl %eax, %eax
-    jne .Lsecond_num
+    jne .Lerrornumber
     callq parseint
     movl %eax, %r12d
 .Lsecond_num:
@@ -38,7 +42,7 @@ main:
     movq %rbp, %rdi
     callq stringcheck
     testl %eax, %eax
-    jne .Loperator
+    jne .Lerrornumber
     callq parseint
     movl %eax, %r13d
 .Loperator:
@@ -46,7 +50,7 @@ main:
     movsbl 0(%rbp), %edi
     callq opcheck
     cmpl $0, %eax
-    je .Lexit
+    je .Lerroroperator
     movq %r12, %rdi
     movq %r13, %rsi
     movl %eax, %edx
@@ -66,20 +70,32 @@ main:
     movq %r14, %rdi
     callq printint
     cmpq $0, %r15
-    je .Lexit
+    je .Laddnewline
     /* print ',' */
     movl $0x2E, -4(%rbp)
     leaq -4(%rbp), %rdi
     callq printstr
     movq %r15, %rdi
     callq printint
-    jmp .Lexit
-.Lexit:
+    jmp .Laddnewline
+.Laddnewline:
     movl $0x0A, -4(%rbp)
     leaq -4(%rbp), %rdi
     callq printstr
-    movl $0, %eax
+.Lexit:
     addq $8, %rsp
     popq %rbx
     popq %rbp
+    movl $0x3C, %eax
+    movl $0x00, %edi
+    syscall
     retq
+
+.Lerrornumber:
+    movq $invalidnumber, %rdi
+    callq printstr
+    jmp .Lexit
+.Lerroroperator:
+    movq $invalidoperator, %rdi
+    callq printstr
+    jmp .Lexit
