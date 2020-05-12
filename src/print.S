@@ -5,7 +5,7 @@
  * parameter:
  *  rdi => pointer to the first character
  */
-printstr:
+print_str:
     pushq %rbp
     movq %rdi, %rbp
 .loop:
@@ -13,7 +13,7 @@ printstr:
     testb %al, %al
     je .print_success
     movq %rbp, %rdi
-    callq printchar
+    callq print_char
     addq $0x01, %rbp
     jmp .loop
 
@@ -30,7 +30,7 @@ printstr:
  *
  * Note: currently works with < 64bit numbers
  */
-printint:
+print_int:
     pushq %rbp
     movq %rsp, %rbp
     pushq %r8
@@ -40,10 +40,10 @@ printint:
     xorq %r9, %r9
     xorq %r10, %r10
 
-    callq getnumofdigits
+    callq get_number_of_digits
     movl %eax, %r8d
     movq %rdi, %r9
-.Lprintint_loop:
+.Lprint_int_loop:
     decq %r8
     movq $10, %rdi
     movq %r8, %rsi
@@ -57,13 +57,13 @@ printint:
     addl $0x30, %eax
     movl %eax, -4(%rbp)
     leaq -4(%rbp), %rdi
-    callq printchar
+    callq print_char
     /* Subtract the digit[r10] * 10^(r8)[ebx] from the number[r9] */
     imul %ebx, %r10d
     subq %r10, %r9
 
     cmpq $0, %r8
-    ja .Lprintint_loop
+    ja .Lprint_int_loop
 
     nop
     popq %r10
@@ -78,10 +78,43 @@ printint:
  * parameter:
  *  rdi => pointer to character
  */
-printchar:
+print_char:
     movq %rdi, %rsi /* msg argument of write syscall */
     movq $0x01, %rax /* write syscall */
     movq $0x01, %rdi /* write to stdout */
     movq $0x01, %rdx /* length to write (1) */
     syscall
+    retq
+
+/* ======================================================
+ * print a '=' using the write syscall
+ */
+print_equal_sign:
+    pushq %r8
+    movl $0x3D, %r8d
+    leaq (%r8), %rdi
+    callq print_char
+    popq %r8
+    retq
+
+/* ======================================================
+ * print a '\n' using the write syscall
+ */
+linebreak:
+    pushq %r8
+    movl $0x0A, %r8d
+    leaq (%r8), %rdi
+    callq print_char
+    popq %r8
+    retq
+
+/* ======================================================
+ * print a '.' using the write syscall
+ */
+print_floating_point:
+    pushq %r8
+    movl $0x2E, %r8d
+    leaq (%r8), %rdi
+    callq print_char
+    popq %r8
     retq

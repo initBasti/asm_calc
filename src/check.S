@@ -1,4 +1,4 @@
-stringcheck:
+string_check:
     pushq %rbp
     movq %rsp, %rbp
     pushq %rdi
@@ -38,7 +38,7 @@ stringcheck:
     popq %rbp
     ret
 
-opcheck:
+operator_check:
     pushq %rbp
     pushq %rdi
 

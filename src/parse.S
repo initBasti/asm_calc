@@ -1,4 +1,4 @@
-parseint:
+parse_int:
     pushq %rbp
     pushq %rbx
     pushq %rdi
@@ -8,9 +8,9 @@ parseint:
 
     /* rdi contains the pointer to the string */
     movq %rdi, %r8
-    callq getlen
+    callq get_string_length
     movl %eax, %r9d
-.Lparseint_loop:
+.Lparse_int_loop:
     subq $1, %r9
 
     /* get the correct power of 10 for the digit
@@ -28,7 +28,7 @@ parseint:
 
     incq %r8
     cmpq $0, %r9
-    ja .Lparseint_loop
+    ja .Lparse_int_loop
 
     /* add result to eax */
     movl %r10d, %eax
@@ -70,16 +70,16 @@ power:
  * parameter:
  *  string (pointer to first char) => rdi
  */
-getlen:
+get_string_length:
     pushq %r8
     xorl %r8d, %r8d
-.Lgetlen_loop:
+.Lget_string_length_loop:
     movzbl (%rdi), %eax
     testb %al, %al
     je .Lfound_nullterminator
     incl %r8d
     incq %rdi
-    jmp .Lgetlen_loop
+    jmp .Lget_string_length_loop
 .Lfound_nullterminator:
     movl %r8d, %eax
     nop
@@ -95,19 +95,19 @@ getlen:
  * parameter:
  *  integer => rdi
  */
- getnumofdigits:
+ get_number_of_digits:
     pushq %rbx
 
     /* idivl requires edx:eax as the dividend, zero edx and sign extend the number */
     xorl %eax, %eax
     movq %rdi, %rax
     movl $10, %ebx
-.Lgetnumofdigits_loop:
+.Lget_number_of_digits_loop:
     cqto
     idivl %ebx
     incq %r8
     cmpl $0, %eax
-    ja .Lgetnumofdigits_loop
+    ja .Lget_number_of_digits_loop
     movl %r8d, %eax
     nop
     popq %rbx
