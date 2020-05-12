@@ -2,6 +2,8 @@ parse_int:
     pushq %rbp
     pushq %rbx
     pushq %rdi
+    pushq %r8
+    pushq %r9
     pushq %r10
 
     xorq %r10, %r10
@@ -34,6 +36,8 @@ parse_int:
     movl %r10d, %eax
     nop
     popq %r10
+    popq %r9
+    popq %r8
     popq %rdi
     popq %rbx
     popq %rbp
