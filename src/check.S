@@ -1,3 +1,65 @@
+.include "src/option.S"
+
+/* =============================================
+ * Check if the equation is valid.
+ * It is not valid, if it contains a sequence of
+ * two elements of the same type.
+ * (eg. number, number / operator, operator)
+ *
+ * parameter:
+ *  rdi = number of parameters (argc)
+ *  rsi = pointer to the address of the first parameter
+ *
+ * result:
+ *  Valid equation (0), Wrong argument (1), Invalid sequence (2)
+ *  _option_bits = options
+ */
+equation_check:
+    pushq %rdi
+    pushq %rsi
+    xorq %r8, %r8 /* total amount of arguments */
+    movq $1, %r9 /* current index of the argument counter */
+    xorq %r10, %r10 /* current offset (index * 8) */
+    xorq %r11, %r11 /* last element boolean (1 = number & 0 = operator) */
+
+    movq %rdi, %r8
+    movq %rsi, %rbx
+
+.Lloop_parameters:
+    movq %r9, %r10
+    imull $8, %r10d
+    movq (%rbx, %r10), %rdi
+    cmpq $0, %rdi
+    je .Lnext_cycle
+    callq string_check
+    cmpl $1, %eax
+    jbe .Lequation_element
+    cmpl $2, %eax
+    je .Loption
+    ja .Lerror_argument
+.Loption:
+    callq activate_option
+    jmp .Lnext_cycle
+.Lequation_element:
+    cmpl %eax, %r11d
+    je .Lerror_invalid_sequence
+    movl %eax, %r11d
+.Lnext_cycle:
+    addq $1, %r9
+    cmpq %r8, %r9
+    jb .Lloop_parameters
+    movq $0, %rax
+    jmp .Leq_check_return
+.Lerror_argument:
+    movq $1, %rax
+    jmp .Leq_check_return
+.Lerror_invalid_sequence:
+    movq $2, %rax
+.Leq_check_return:
+    popq %rsi
+    popq %rdi
+    retq
+
 /* =============================================
  * Test if the string matches one of the valid parameter types:
  *  - number
