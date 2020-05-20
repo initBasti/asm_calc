@@ -14,7 +14,7 @@
  *  Valid equation (0), Wrong argument (1), Invalid sequence (2)
  *  _option_bits = options
  */
-equation_check:
+check_equation:
     pushq %rdi
     pushq %rsi
     xorq %r8, %r8 /* total amount of arguments */
@@ -25,29 +25,29 @@ equation_check:
     movq %rdi, %r8
     movq %rsi, %rbx
 
-.Lloop_parameters:
+.Leq_check_loop:
     movq %r9, %r10
     imull $8, %r10d
     movq (%rbx, %r10), %rdi
     cmpq $0, %rdi
-    je .Lnext_cycle
+    je .Leq_check_next
     callq string_check
     cmpl $1, %eax
     jbe .Lequation_element
     cmpl $2, %eax
-    je .Loption
+    je .Leq_check_option
     ja .Lerror_argument
-.Loption:
+.Leq_check_option:
     callq activate_option
-    jmp .Lnext_cycle
+    jmp .Leq_check_next
 .Lequation_element:
     cmpl %eax, %r11d
     je .Lerror_invalid_sequence
     movl %eax, %r11d
-.Lnext_cycle:
+.Leq_check_next:
     addq $1, %r9
     cmpq %r8, %r9
-    jb .Lloop_parameters
+    jb .Leq_check_loop
     movq $0, %rax
     jmp .Leq_check_return
 .Lerror_argument:
@@ -199,62 +199,3 @@ option_check:
     movl $1, %eax
     retq
 
-/* =============================================
- * Return the predefined value for the operator symbol
- * This is called after operator_check, where the length
- * of the string is tested.
- * parameter:
- *  rdi => string
- * return:
- *  '+' = 1 (Addition)
- *  '-' = 2 (Subtraction)
- *  'x' = 3 (Multiplication)
- *  '/' = 4 (Division)
- *  '^' = 5 (Exponantiation)
- *  'R' = 6 (nth root of)
- */
-operator_value:
-    pushq %rdi
-    pushq %r8
-
-    movzbl (%rdi), %eax
-    cmpb $0x2B, %al
-    jne .Lsubtract_value
-    movl $1, %r8d
-    jmp .Loperator_match
-.Lsubtract_value:
-    cmpb $0x2D, %al
-    jne .Lmultiply_value
-    movl $2, %r8d
-    jmp .Loperator_match
-.Lmultiply_value:
-    cmpb $0x78, %al
-    jne .Ldivsion_value
-    movl $3, %r8d
-    jmp .Loperator_match
-.Ldivsion_value:
-    cmpb $0x2F, %al
-    jne .Lexponantiation_value
-    movl $4, %r8d
-    jmp .Loperator_match
-.Lexponantiation_value:
-    cmpb $0x5E, %al
-    jne .Lroot_value
-    movl $5, %r8d
-    jmp .Loperator_match
-.Lroot_value:
-    cmpb $0x52, %al
-    jne .Linvalid_value
-    movl $6, %r8d
-    jmp .Loperator_match
-.Linvalid_value:
-    movl $0, %eax
-    popq %r8
-    popq %rdi
-    ret
-
-.Loperator_match:
-    movl %r8d, %eax
-    popq %r8
-    popq %rdi
-    ret
