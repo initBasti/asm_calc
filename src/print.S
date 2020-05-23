@@ -101,11 +101,9 @@ print_equal_sign:
  * print a '\n' using the write syscall
  */
 linebreak:
-    pushq %r8
     movl $0x0A, %r8d
     leaq (%r8), %rdi
     callq print_char
-    popq %r8
     retq
 
 /* ======================================================
