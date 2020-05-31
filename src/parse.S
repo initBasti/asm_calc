@@ -72,52 +72,49 @@ parse_equation:
     retq
 
 /* =====================================================
+ * convert the integer part of the ASCII string representing
+ * a floating point number to a floating point number.
  *
+ * parameter:
+ *  rdi => pointer to string
+ *
+ * return:
+ *  xmm0 => result
  */
-parse_int:
+parse_integer_part:
     pushq %rbp
-    pushq %rbx
-    pushq %rdi
     pushq %r8
-    pushq %r9
-    pushq %r10
+    movq %rsp, %rbp
 
-    xorq %r10, %r10
+    /* set result to 0 and place it on the stack */
+    vxorps %xmm0, %xmm0, %xmm0
+    vmovss %xmm0, -4(%rbp)
 
-    /* rdi contains the pointer to the string */
     movq %rdi, %r8
-    callq get_string_length
-    movl %eax, %r9d
-.Lparse_int_loop:
-    subq $1, %r9
-
-    /* get the correct power of 10 for the digit
-     * rdi is the current length */
-    movq $10, %rdi
-    movzbl %r9b, %esi
-    callq power
-    movl %eax, %ebx
-
-    movzbl (%r8), %eax
+    jmp .Lparse_int_loop
+.Lparse_int_calculate:
     subl $0x30, %eax
-    /* multiply the digit with its power of 10 */
-    imull %ebx, %eax
-    addl %eax, %r10d
-
+    /* result *= 10 */
+    vmovss -4(%rbp), %xmm1
+    vmovss .Lbinary_float_of_decimal_10(%rip), %xmm0
+    vmulss %xmm0, %xmm1, %xmm1
+    /* convert integer to float and add to result */
+    vcvtsi2ss %eax, %xmm0, %xmm0
+    vaddss %xmm0, %xmm1, %xmm0
+    vmovss %xmm0, -4(%rbp)
+.Lparse_int_loop:
+    movzbl (%r8), %eax
     incq %r8
-    cmpq $0, %r9
-    ja .Lparse_int_loop
-
-    /* add result to eax */
-    movl %r10d, %eax
-    nop
-    popq %r10
-    popq %r9
+    cmpb $0, %al
+    jne .Lparse_int_calculate
+    vmovss -4(%rbp), %xmm0
+    movq %rbp, %rsp
     popq %r8
-    popq %rdi
-    popq %rbx
     popq %rbp
     retq
+
+.Lbinary_float_of_decimal_10:
+	.long	1092616192
 
 /* =====================================================
  * a ^ b
