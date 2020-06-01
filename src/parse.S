@@ -120,6 +120,43 @@ parse_integer_part:
 	.long	1092616192
 
 /* =====================================================
+ * Determine if the string contains a decimal point.
+ *
+ * parameter:
+ *  rdi [string] => pointer to the first character of null terminated string
+ *
+ * return:
+ *  Success:
+ *  rax [Address] => Address of the first character after the decimal point
+ *  or
+ *  rax [Integer] => 0, when no decimal point was found
+ *  Failure:
+ *  rax [Integer] => -1, when more than 1 decimal point is present
+ */
+find_fractal_part:
+    pushq %r8
+    xorq %r8, %r8
+.Lfind_fractal_loop:
+    movzbl (%rdi), %eax
+    incq %rdi
+    cmpb $0x2E, %al
+    je .Lfind_fractal_decimal_point
+    cmpb $0x00, %al
+    jne .Lfind_fractal_loop
+    movq %r8, %rax
+    jmp .Lfind_fractal_return
+.Lfind_fractal_decimal_point:
+    cmpq $0x00, %r8
+    jne .Lfind_fractal_two_decimal_points
+    movq %rdi, %r8
+    jmp .Lfind_fractal_loop
+.Lfind_fractal_two_decimal_points:
+    movq $-0x01, %rax
+.Lfind_fractal_return:
+    popq %r8
+    retq
+
+/* =====================================================
  * a ^ b
  * parameter:
  *  a (base) => rdi
