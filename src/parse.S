@@ -72,8 +72,8 @@ parse_equation:
     retq
 
 /* =====================================================
- * convert the integer part of the ASCII string representing
- * a floating point number to a floating point number.
+ * Convert the integer part of the ASCII decimal representation
+ * of a number to a floating point number.
  *
  * parameter:
  *  rdi => pointer to string
@@ -105,8 +105,11 @@ parse_integer_part:
 .Lparse_int_loop:
     movzbl (%r8), %eax
     incq %r8
+    cmpb $0x2E, %al
+    je .Lparse_int_return
     cmpb $0, %al
     jne .Lparse_int_calculate
+.Lparse_int_return:
     vmovss -4(%rbp), %xmm0
     movq %rbp, %rsp
     popq %r8
