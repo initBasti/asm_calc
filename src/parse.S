@@ -157,6 +157,56 @@ find_fractal_part:
     retq
 
 /* =====================================================
+ * Convert the fractal-part of ASCII decimal representation of a number
+ * to a floating point number.
+ * Multiplier = 0.1, Result = 0
+ * Loop through the digits until the null terminator,
+ * result = result + (digit * multiplier)
+ * Multiplier = Multiplier * 0.1
+ *
+ * parameter:
+ *  rdi [string] => pointer to the first character after the decimal point
+ *
+ * return:
+ *  xmm0 [float] => floating point number
+ */
+parse_fractal_part:
+    pushq %rbp
+    movq %rsp, %rbp
+
+    vxorps %xmm0, %xmm0, %xmm0
+    vmovss %xmm0, -4(%rbp)
+    vmovss .Lbinary_float_of_decimal_0.10(%rip), %xmm0
+    vmovss %xmm0, -8(%rbp)
+
+    jmp .Lparse_fractal_loop
+.Lparse_fractal_calculate:
+    subl $0x30, %eax
+    vcvtsi2ss %eax, %xmm1, %xmm1
+    vmovss -8(%rbp), %xmm0
+    vmulss %xmm0, %xmm1, %xmm1
+
+    vmovss -4(%rbp), %xmm0
+    vaddss %xmm0, %xmm1, %xmm0
+    vmovss %xmm0, -4(%rbp)
+    vmovss -8(%rbp), %xmm1
+    vmovss .Lbinary_float_of_decimal_0.10(%rip), %xmm0
+    vmulss %xmm0, %xmm1, %xmm1
+    vmovss %xmm1, -8(%rbp)
+.Lparse_fractal_loop:
+    movzbl (%rdi), %eax
+    incq %rdi
+    cmpb $0, %al
+    jne .Lparse_fractal_calculate
+    vmovss -4(%rbp), %xmm0
+    movq %rbp, %rsp
+    popq %rbp
+    retq
+
+.Lbinary_float_of_decimal_0.10:
+	.long    1036831949
+
+/* =====================================================
  * a ^ b
  * parameter:
  *  a (base) => rdi
