@@ -107,16 +107,19 @@ string_check:
  */
 number_check:
     pushq %rdi
+    popq %r8
+    movq %rdi, %r8
 .Lnumber_next:
-    movzbl (%rdi), %eax
+    movzbl (%r8), %eax
     testb %al, %al
     je .Lnumber_success
-    incq %rdi
+    incq %r8
 
-    subl $48, %eax
-    cmpb $9, %al /* when char - 48 is smaller or equal to 9 it is a number */
-    jbe .Lnumber_next
-    ja .Lnumber_fail
+    movq %rax, %rdi
+    callq is_digit
+    cmpq $0, %rax
+    jne .Lnumber_next
+    je .Lnumber_fail
 .Lnumber_success:
     movl $0x01, %eax
     popq %rdi
@@ -197,5 +200,26 @@ option_check:
 .Loption_success:
     popq %rdi
     movl $1, %eax
+    retq
+
+/* =====================================================
+ * Check if a character represents a digit from 0-9.
+ *
+ * parameter:
+ *  rdi [character] => character value as part of a string
+ *
+ * return:
+ *  rax [Boolean] => True(1) or False(0)
+ */
+is_digit:
+    subq $0x30, %rdi
+    cmpq $0x09, %rdi
+    ja .Lis_digit_False
+    cmpq $0x00, %rdi
+    jb .Lis_digit_False
+    movq $0x01, %rax
+    retq
+.Lis_digit_False:
+    movq $0x00, %rax
     retq
 
