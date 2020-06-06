@@ -207,6 +207,75 @@ parse_fractal_part:
 	.long    1036831949
 
 /* =====================================================
+ * Remove unwanted characters and recognize the sign of the number.
+ * Change the string in place and null terminate the end
+ * of the string in case it got shorter.
+ *
+ * parameter:
+ *  rdi [string] => pointer to first character of null terminated string
+ *
+ * return:
+ *  rax [integer] => Negative(-1) [negative number] , Positive(1) [positive number]
+ */
+prepare_string:
+    pushq %rdi
+    pushq %r8 /* input string */
+    pushq %r9 /* index nr 1 */
+    pushq %r10 /* index nr 2 */
+    pushq %r11 /* index for clean up loop */
+    pushq %r12 /* positive/negative number */
+
+    movq %rdi, %r8
+
+    xorq %r9, %r9
+    xorq %r10, %r10
+    xorq %r11, %r11
+    movq $0x01, %r12
+    movzbl (%r8), %eax
+    cmpb $0x2D, %al
+    je .Lprepare_number_negative
+    jmp .Lprepare_loop
+.Lprepare_number_negative:
+    movq $-0x01, %r11
+    incq %r9
+.Lprepare_loop:
+    movzbl (%r8, %r9), %edi
+    cmpb $0x00, %dil
+    je .Lprepare_clean_up
+    callq is_digit
+    cmpq $0x01, %rax
+    je .Lprepare_is_digit_or_decimal_point
+    cmpb $0x2E, %dil
+    jne .Lprepare_illegal_char
+.Lprepare_is_digit_or_decimal_point:
+    movzbl (%r8, %r9), %eax
+    movb %al, (%r8, %r10)
+    incq %r9
+    incq %r10
+    jmp .Lprepare_loop
+.Lprepare_illegal_char:
+    incq %r9
+    jmp .Lprepare_loop
+.Lprepare_clean_up:
+    movq %r10, %r11
+.Lprepare_clean_loop:
+    cmpq %r9, %r11
+    jge .Lprepare_return
+    movq $0x00, (%r8, %r11)
+    incq %r11
+    jmp .Lprepare_clean_loop
+.Lprepare_return:
+    movq %r11, %rax
+
+    popq %r12
+    popq %r11
+    popq %r10
+    popq %r9
+    popq %r8
+    popq %rdi
+    retq
+
+/* =====================================================
  * a ^ b
  * parameter:
  *  a (base) => rdi
