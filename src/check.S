@@ -212,10 +212,9 @@ option_check:
  *  rax [Boolean] => True(1) or False(0)
  */
 is_digit:
-    subq $0x30, %rdi
-    cmpq $0x09, %rdi
+    cmpq $0x39, %rdi
     ja .Lis_digit_False
-    cmpq $0x00, %rdi
+    cmpq $0x30, %rdi
     jb .Lis_digit_False
     movq $0x01, %rax
     retq
