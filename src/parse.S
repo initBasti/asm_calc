@@ -276,6 +276,51 @@ prepare_string:
     retq
 
 /* =====================================================
+ * Convert a ASCII decimal representation of a number (e.g 1.5)
+ * to a IEEE-754 floating point binary 32 number.
+ *
+ * String has to start with a digit or a '-'.
+ *
+ * parameter:
+ *  rdi [string] => pointer to first character of null terminated string
+ *
+ * return:
+ *  xmm0 [float] => floating point number
+ */
+parse_float:
+    pushq %rbp
+    pushq %r8
+    movq %rsp, %rbp
+    xorq %r8, %r8 /* sign multiplier */
+    callq prepare_string
+    movq %rax, %r8
+
+    callq parse_integer_part
+    movaps %xmm0, %xmm2
+
+    callq find_fractal_part
+    cmpq $-0x01, %rax
+    je .Lparse_float_invalid_number
+    cmpq $0, %rax
+    je .Lparse_float_result
+
+    movq %rax, %rdi
+    callq parse_fractal_part
+.Lparse_float_result:
+    movaps %xmm2, %xmm1
+    vaddss %xmm0, %xmm1, %xmm0
+    vcvtsi2ss %r8d, %xmm1, %xmm1
+    vmulss %xmm1, %xmm0, %xmm0
+    jmp .Lparse_float_return
+.Lparse_float_invalid_number:
+    vcvtsi2ss %eax, %xmm0, %xmm0
+.Lparse_float_return:
+    movq %rbp, %rsp
+    popq %r8
+    popq %rbp
+    retq
+
+/* =====================================================
  * a ^ b
  * parameter:
  *  a (base) => rdi
