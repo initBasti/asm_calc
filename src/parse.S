@@ -236,7 +236,7 @@ prepare_string:
     je .Lprepare_number_negative
     jmp .Lprepare_loop
 .Lprepare_number_negative:
-    movq $-0x01, %r11
+    movq $-0x01, %r12
     incq %r9
 .Lprepare_loop:
     movzbl (%r8, %r9), %edi
@@ -265,7 +265,7 @@ prepare_string:
     incq %r11
     jmp .Lprepare_clean_loop
 .Lprepare_return:
-    movq %r11, %rax
+    movq %r12, %rax
 
     popq %r12
     popq %r11
