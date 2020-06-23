@@ -74,6 +74,66 @@ print_int:
     retq
 
 /* ======================================================
+ * Split the IEEE754 floating-point number into it's sub parts:
+ * Sign bit, exponent and mantissa.
+ *
+ * parameter:
+ *  xmm0 => input floating-point number
+ *
+ * return:
+ *  rax => Stack pointer to the three parts (size 4 bytes each)
+ */
+split_into_parts:
+    pushq %rbp
+    movq %rsp, %rbp
+    vmovss %xmm0, -8(%rbp)
+    leaq -8(%rbp), %rax
+    movl (%rax), %eax
+    sall $31, %eax
+    movl %eax, -52(%rbp)
+    leaq -8(%rbp), %rax
+    movl (%rax), %eax
+    movl .LExponent_mask, %ebx
+    andl %ebx, %eax
+    movl %eax, -56(%rbp)
+    leaq -8(%rbp), %rax
+    movl (%rax), %eax
+    movl .LMantissa_mask, %ebx
+    andl %ebx, %eax
+    movl %eax, -60(%rbp)
+    leaq -60(%rbp), %rax
+    movq %rbp, %rsp
+    popq %rbp
+    retq
+.LExponent_mask:
+    .long 2139095040
+.LMantissa_mask:
+    .long 8388607
+
+/* ======================================================
+ * Check if the number is equal to zero.
+ *
+ * parameter:
+ *  rdi => Stack pointer to the three parts
+ *
+ * return:
+ *  rax => 1 (True is zero) | 0 (False is not zero)
+ */
+zero_check:
+    movq (%rdi), %rax
+    cmpq $0, %rax
+    jne .Lisnotzero
+    movq 4(%rdi), %rax
+    cmpq $0, %rax
+    jne .Lisnotzero
+    movq $1, %rax
+    jmp .Lzero_check_return
+.Lisnotzero:
+    movq $0, %rax
+.Lzero_check_return:
+    retq
+
+/* ======================================================
  * print a single character using the write syscall
  * parameter:
  *  rdi => pointer to character
