@@ -134,6 +134,39 @@ zero_check:
     retq
 
 /* ======================================================
+ * Adjust sub parts of the floating point number to prepare
+ * the number for the conversion to an unsigned integer.
+ * That involves moving the decimal 'dot' to the rightmost
+ * position.
+ *
+ * parameter:
+ *  rdi => Stack pointer to the three parts
+ *  addr+0 = mantissa, addr+4 = exponent, addr+8 = sign
+ *
+ * return:
+ *  rax => Stack pointer to the three parts (size 4 bytes each)
+ */
+adjust_parts:
+    movl 4(%rdi), %eax
+    cmpl $0, %eax
+    je .Ladjust_with_exponent_0
+    /*subtract Bias(127), Mantissa len(23) & Bits for bounds computation(2)*/
+    subl $152, %eax
+    movl %eax, 4(%rdi)
+    movl (%rdi), %eax
+    movl $1, %ebx
+    sall $23, %ebx
+    orl %ebx, %eax
+    movl %eax, (%rdi)
+    jmp .Ladjust_return
+.Ladjust_with_exponent_0:
+    /* exponent = 1 - Bias - mantissa len - bits for bounds computation */
+    movl $-151, 4(%rdi)
+.Ladjust_return:
+    movq %rdi, %rax
+    retq
+
+/* ======================================================
  * print a single character using the write syscall
  * parameter:
  *  rdi => pointer to character
