@@ -89,13 +89,19 @@ split_into_parts:
     vmovss %xmm0, -8(%rbp)
     leaq -8(%rbp), %rax
     movl (%rax), %eax
-    sall $31, %eax
+    /* 1. sign bit */
+    sarl $31, %eax
+    movzbl %al, %eax
     movl %eax, -52(%rbp)
+    /* 2. exponent */
     leaq -8(%rbp), %rax
     movl (%rax), %eax
-    movl .LExponent_mask, %ebx
-    andl %ebx, %eax
+    /* mantissa bits = 23*/
+    sarl $23, %eax
+    /* (1 << exponent bits(8)) - 1 = 255*/
+    andl $255, %eax
     movl %eax, -56(%rbp)
+    /* 3. mantissa */
     leaq -8(%rbp), %rax
     movl (%rax), %eax
     movl .LMantissa_mask, %ebx
@@ -105,9 +111,8 @@ split_into_parts:
     movq %rbp, %rsp
     popq %rbp
     retq
-.LExponent_mask:
-    .long 2139095040
 .LMantissa_mask:
+    /* (1 << mantissa bits(23)) -1 */
     .long 8388607
 
 /* ======================================================
@@ -120,10 +125,10 @@ split_into_parts:
  *  rax => 1 (True is zero) | 0 (False is not zero)
  */
 zero_check:
-    movq (%rdi), %rax
+    movl (%rdi), %eax
     cmpq $0, %rax
     jne .Lisnotzero
-    movq 4(%rdi), %rax
+    movl 4(%rdi), %eax
     cmpq $0, %rax
     jne .Lisnotzero
     movq $1, %rax

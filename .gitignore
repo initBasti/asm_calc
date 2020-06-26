@@ -3,7 +3,8 @@
 /obj
 /ctests
 /verbose
+/tests
 
 .gdb_history
 Session.vim
-
+print_floating_point.pdf
