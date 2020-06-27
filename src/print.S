@@ -172,6 +172,54 @@ adjust_parts:
     retq
 
 /* ======================================================
+ * Determine the interval of valid outputs, by computing
+ * the halway points to the next larger and smaller floating point number.
+ *
+ * parameter:
+ *  rdi => Stack pointer to the three parts
+ *  addr+0 = mantissa, addr+4 = exponent, addr+8 = sign
+ *
+ * return:
+ *  rax => Stack pointer to the interval parts (high/mid/low)
+ *  (addr: rsp - 76 to rsp - 64)
+ *  addr+0 = high, addr+4 = mid, addr+8 = low
+ */
+compute_output_interval:
+    pushq %rbp
+    pushq %r8 /*mantissa*/
+    movq %rsp, %rbp
+
+    movl (%rdi), %r8d
+    movl %r8d, %eax
+    imull $4, %eax
+    movl %eax, -68(%rbp)
+    movl %eax, %ebx
+    addl $2, %ebx
+    movl %ebx, -72(%rbp)
+    subl $1, %eax
+    /* mantissa |= 1 >> mantissa len(23) to get the original mantissa */
+    movl %r8d, %ebx
+    movl $1, %ecx
+    sall $23, %ecx
+    notl %ecx
+    andl %ecx, %ebx
+    cmpl $0, %ebx
+    jne .Llow_shift_compute_interval
+    movl 4(%rdi), %ecx
+    cmpl $1, %ecx
+    jle .Llow_shift_compute_interval
+    jmp .Lcompute_interval_return
+.Llow_shift_compute_interval:
+    subl $1, %eax
+.Lcompute_interval_return:
+    movl %eax, -64(%rbp)
+    leaq -72(%rbp), %rax
+
+    movq %rbp, %rsp
+    popq %r8
+    popq %rbp
+
+/* ======================================================
  * print a single character using the write syscall
  * parameter:
  *  rdi => pointer to character
