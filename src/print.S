@@ -77,11 +77,13 @@ print_int:
  * Split the IEEE754 floating-point number into it's sub parts:
  * Sign bit, exponent and mantissa.
  *
+ * Stack map:
+ *  -80 => sign bit
+ *  -84 => exponent
+ *  -88 => mantissa
+ *
  * parameter:
  *  xmm0 => input floating-point number
- *
- * return:
- *  rax => Stack pointer to the three parts (size 4 bytes each)
  */
 split_into_parts:
     pushq %rbp
@@ -92,7 +94,7 @@ split_into_parts:
     /* 1. sign bit */
     sarl $31, %eax
     movzbl %al, %eax
-    movl %eax, -52(%rbp)
+    movl %eax, -80(%rbp)
     /* 2. exponent */
     leaq -8(%rbp), %rax
     movl (%rax), %eax
@@ -100,14 +102,13 @@ split_into_parts:
     sarl $23, %eax
     /* (1 << exponent bits(8)) - 1 = 255*/
     andl $255, %eax
-    movl %eax, -56(%rbp)
+    movl %eax, -84(%rbp)
     /* 3. mantissa */
     leaq -8(%rbp), %rax
     movl (%rax), %eax
     movl .LMantissa_mask, %ebx
     andl %ebx, %eax
-    movl %eax, -60(%rbp)
-    leaq -60(%rbp), %rax
+    movl %eax, -88(%rbp)
     movq %rbp, %rsp
     popq %rbp
     retq
@@ -118,17 +119,21 @@ split_into_parts:
 /* ======================================================
  * Check if the number is equal to zero.
  *
- * parameter:
- *  rdi => Stack pointer to the three parts
+ * Stack map:
+ *  -80 => sign bit
+ *  -84 => exponent
+ *  -88 => mantissa
  *
  * return:
  *  rax => 1 (True is zero) | 0 (False is not zero)
  */
 zero_check:
-    movl (%rdi), %eax
+    pushq %rbp
+    movq %rsp, %rbp
+    movl -88(%rbp), %eax
     cmpq $0, %rax
     jne .Lisnotzero
-    movl 4(%rdi), %eax
+    movl -84(%rbp), %eax
     cmpq $0, %rax
     jne .Lisnotzero
     movq $1, %rax
@@ -136,6 +141,8 @@ zero_check:
 .Lisnotzero:
     movq $0, %rax
 .Lzero_check_return:
+    movq %rbp, %rsp
+    popq %rbp
     retq
 
 /* ======================================================
@@ -144,80 +151,79 @@ zero_check:
  * That involves moving the decimal 'dot' to the rightmost
  * position.
  *
- * parameter:
- *  rdi => Stack pointer to the three parts
- *  addr+0 = mantissa, addr+4 = exponent, addr+8 = sign
- *
- * return:
- *  rax => Stack pointer to the three parts (size 4 bytes each)
+ * Stack map:
+ *  -84 => exponent
+ *  -88 => mantissa
+ *  -92 => adj. exponent
+ *  -96 => adj. mantissa
  */
 adjust_parts:
-    movl 4(%rdi), %eax
+    pushq %rbp
+    movq %rsp, %rbp
+    movl -84(%rbp), %eax
     cmpl $0, %eax
     je .Ladjust_with_exponent_0
     /*subtract Bias(127), Mantissa len(23) & Bits for bounds computation(2)*/
     subl $152, %eax
-    movl %eax, 4(%rdi)
-    movl (%rdi), %eax
+    movl %eax, -92(%rbp)
+    movl -88(%rbp), %eax
     movl $1, %ebx
     sall $23, %ebx
     orl %ebx, %eax
-    movl %eax, (%rdi)
+    movl %eax, -96(%rbp)
     jmp .Ladjust_return
 .Ladjust_with_exponent_0:
     /* exponent = 1 - Bias - mantissa len - bits for bounds computation */
-    movl $-151, 4(%rdi)
+    movl $-151, -92(%rbp)
+    movl -88(%rbp), %eax
+    movl %eax, -96(%rbp)
 .Ladjust_return:
-    movq %rdi, %rax
+    movq %rbp, %rsp
+    popq %rbp
     retq
 
 /* ======================================================
  * Determine the interval of valid outputs, by computing
- * the halway points to the next larger and smaller floating point number.
+ * the halfway points to the next larger and smaller floating point number.
  *
- * parameter:
- *  rdi => Stack pointer to the three parts
- *  addr+0 = mantissa, addr+4 = exponent, addr+8 = sign
- *
- * return:
- *  rax => Stack pointer to the interval parts (high/mid/low)
- *  (addr: rsp - 76 to rsp - 64)
- *  addr+0 = high, addr+4 = mid, addr+8 = low
+ * Stack map:
+ *  -84 => exponent
+ *  -88 => mantissa
+ *  -92 => adj. exponent
+ *  -96 => adj. mantissa
+ *  -100 => low output interval
+ *  -104 => mid output interval
+ *  -108 => high output interval
  */
 compute_output_interval:
     pushq %rbp
-    pushq %r8 /*mantissa*/
     movq %rsp, %rbp
+    pushq %r8 /*mantissa*/
 
-    movl (%rdi), %r8d
+    movl -96(%rbp), %r8d
     movl %r8d, %eax
     imull $4, %eax
-    movl %eax, -68(%rbp)
+    movl %eax, -104(%rbp)
     movl %eax, %ebx
     addl $2, %ebx
-    movl %ebx, -72(%rbp)
+    movl %ebx, -108(%rbp)
     subl $1, %eax
-    /* mantissa |= 1 >> mantissa len(23) to get the original mantissa */
-    movl %r8d, %ebx
-    movl $1, %ecx
-    sall $23, %ecx
-    notl %ecx
-    andl %ecx, %ebx
+    movl -88(%rbp), %ebx
     cmpl $0, %ebx
     jne .Llow_shift_compute_interval
-    movl 4(%rdi), %ecx
+    movl -84(%rbp), %ecx
     cmpl $1, %ecx
     jle .Llow_shift_compute_interval
     jmp .Lcompute_interval_return
 .Llow_shift_compute_interval:
     subl $1, %eax
 .Lcompute_interval_return:
-    movl %eax, -64(%rbp)
-    leaq -72(%rbp), %rax
+    movl %eax, -100(%rbp)
 
-    movq %rbp, %rsp
     popq %r8
+    movq %rbp, %rsp
     popq %rbp
+    retq
 
 /* ======================================================
  * print a single character using the write syscall
