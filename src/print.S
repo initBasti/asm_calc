@@ -475,3 +475,125 @@ convert_output_interval:
     movq %rbp, %rsp
     popq %rbp
     retq
+
+/* ======================================================
+ * Calculate the final Exponent with:
+ * [adjusted exponent >= 0]:
+ *      floor(log10(2^adjusted exponent)) + number of removed digits
+ * [adjusted exponent < 0]:
+ *      floor(log10(5^-(adjusted exponent))) + adjusted exponent
+ *      + number of removed digits
+ *
+ * parameter:
+ *  edi => adjusted exponent
+ *  esi => number of removed digits
+ *
+ * return:
+ *  eax => exponent
+ */
+calculate_final_exponent:
+    cmpl $0, %edi
+    jl .Lfinal_exponent_with_sub_zero_exponent
+    callq log10pow2
+    addl %esi, %eax
+    jmp .Lfinal_exponent_return
+.Lfinal_exponent_with_sub_zero_exponent:
+    movl %edi, %ebx
+    imull $-1, %edi
+    callq log10pow5
+    addl %ebx, %eax
+    addl %esi, %eax
+.Lfinal_exponent_return:
+    retq
+
+/* ======================================================
+ * Find the shortest decimal representation within
+ * the interval of possible outputs.
+ * General procedure:
+ * Divide the whole output interval by 10 for as long as
+ * the upper boundary is greater as the lower boundary.
+ * Count the amount of removed digits and get the correct exponent
+ * with a call to calculate_final_exponent.
+ * The mantissa is calculated by taking the middle of the interval,
+ * as soon as the loop condition is false and adding 1, whenever
+ * the remainder of the previous division is greater than 5 or
+ * when the middle of the interval is equal to the bottom of the interval.
+ *
+ * NOTE: This is the simple implementation, which fits 96% of the cases
+ * according to the algorithm author. Which means that this algorithm fails
+ * for ~4% of the numbers.
+ *
+ * Stack map:
+ *  -92 => adj. exponent
+ *  -96 => adj. mantissa
+ *  -100 => low output interval
+ *  -104 => mid output interval
+ *  -108 => high output interval
+ *  -112 => low interval conversion
+ *  -116 => mid interval conversion
+ *  -120 => high interval conversion
+ *
+ * return:
+ *  eax => result mantissa
+ *  edx => result exponent
+ */
+find_shortest_representation:
+    pushq %rbp
+    movq %rsp, %rbp
+    pushq %r8 /* lower boundary interval (converted) */
+    pushq %r9 /* middle of the interval (converted) */
+    pushq %r10 /* upper boundary interval (converted) */
+    pushq %r11 /* last removed digit */
+    pushq %r12 /* amount of removed digits */
+
+    movl -112(%rbp), %r8d
+    movl -116(%rbp), %r9d
+    movl -120(%rbp), %r10d
+    xorq %r12, %r12
+.Lfind_representation_loop:
+    movl $10, %ebx
+    movl %r8d, %eax
+    cqto
+    idivl %ebx
+    movl %eax, %r8d
+    movl %r9d, %eax
+    cqto
+    idivl %ebx
+    movl %eax, %r9d
+    movb %dl, %r11b
+    movl %r10d, %eax
+    cqto
+    idivl %ebx
+    movl %eax, %r10d
+    incl %r12d
+    movl %r10d, %eax
+    cqto
+    idivl %ebx
+    movl %eax, %ecx
+    movl %r8d, %eax
+    cqto
+    idivl %ebx
+    subl %eax, %ecx
+    cmpl $0, %ecx
+    jg .Lfind_representation_loop
+    movl -92(%rbp), %edi
+    movl %r12d, %esi
+    callq calculate_final_exponent
+    movl %eax, %edx
+    movl %r9d, %eax
+    cmpl %r9d, %r8d
+    je .Lfind_representation_increase_output
+    cmpl $5, %r11d
+    jge .Lfind_representation_increase_output
+    jmp .Lfind_representation_return
+.Lfind_representation_increase_output:
+    incl %eax
+.Lfind_representation_return:
+    popq %r12
+    popq %r11
+    popq %r10
+    popq %r9
+    popq %r8
+    movq %rbp, %rsp
+    popq %rbp
+    retq
