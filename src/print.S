@@ -1,6 +1,97 @@
 .include "src/parse.S"
 
 /* ======================================================
+ * print a single character using the write syscall
+ * parameter:
+ *  rdi => pointer to character
+ */
+print_char:
+    movq %rdi, %rsi /* msg argument of write syscall */
+    movq $0x01, %rax /* write syscall */
+    movq $0x01, %rdi /* write to stdout */
+    movq $0x01, %rdx /* length to write (1) */
+    syscall
+    retq
+
+/* ======================================================
+ * print a '\n' using the write syscall
+ */
+linebreak:
+    movl $0x0A, %r8d
+    leaq (%r8), %rdi
+    callq print_char
+    retq
+
+/* ======================================================
+ * print a '.' using the write syscall
+ */
+print_floating_point:
+    pushq %r8
+    movl $0x2E, %r8d
+    leaq (%r8), %rdi
+    callq print_char
+    popq %r8
+    retq
+
+/* ======================================================
+ * Compute the logarithm base 10 of 2 ^ number, rounded down.
+ * Use the forumla provided by the RYU algorithm.
+ * (github.com/ulfjack/ryu/blob/d4114cedf9de3a9504e0fc21e212ef1043af64c7/ryu/common.h)
+ *
+ * works for 0 <= input <= 1650
+ *
+ * parameter:
+ *  rdi => adj. exponent
+ *
+ * return:
+ *  rax => result
+ */
+log10pow2:
+    imull $78913, %edi
+    sarl $18, %edi
+    movl %edi, %eax
+    retq
+
+/* ======================================================
+ * Compute the logarithm base 2 of 5 ^ number, rounded up.
+ * Use the forumla provided by the RYU algorithm.
+ * (github.com/ulfjack/ryu/blob/d4114cedf9de3a9504e0fc21e212ef1043af64c7/ryu/common.h)
+ *
+ * works for 0 <= input <= 3528
+ *
+ * parameter:
+ *  rdi => Index for the factor table
+ *
+ * return:
+ *  rax => result
+ */
+pow5bits:
+    imull $1217359, %edi
+    sarl $19, %edi
+    incl %edi
+    movl %edi, %eax
+    retq
+
+/* ======================================================
+ * Compute the logarithm base 10 of 5 ^ number, rounded down.
+ * Use the forumla provided by the RYU algorithm.
+ * (github.com/ulfjack/ryu/blob/d4114cedf9de3a9504e0fc21e212ef1043af64c7/ryu/common.h)
+ *
+ * works for 0 < input < 2620
+ *
+ * parameter:
+ *  rdi => adj. exponent
+ *
+ * return:
+ *  rax => result
+ */
+log10pow5:
+    imull $732923, %edi
+    sarl $20, %edi
+    movl %edi, %eax
+    retq
+
+/* ======================================================
  * print a string until the null terminator
  * parameter:
  *  rdi => pointer to the first character
@@ -225,46 +316,4 @@ compute_output_interval:
     popq %rbp
     retq
 
-/* ======================================================
- * print a single character using the write syscall
- * parameter:
- *  rdi => pointer to character
- */
-print_char:
-    movq %rdi, %rsi /* msg argument of write syscall */
-    movq $0x01, %rax /* write syscall */
-    movq $0x01, %rdi /* write to stdout */
-    movq $0x01, %rdx /* length to write (1) */
-    syscall
-    retq
 
-/* ======================================================
- * print a '=' using the write syscall
- */
-print_equal_sign:
-    pushq %r8
-    movl $0x3D, %r8d
-    leaq (%r8), %rdi
-    callq print_char
-    popq %r8
-    retq
-
-/* ======================================================
- * print a '\n' using the write syscall
- */
-linebreak:
-    movl $0x0A, %r8d
-    leaq (%r8), %rdi
-    callq print_char
-    retq
-
-/* ======================================================
- * print a '.' using the write syscall
- */
-print_floating_point:
-    pushq %r8
-    movl $0x2E, %r8d
-    leaq (%r8), %rdi
-    callq print_char
-    popq %r8
-    retq
