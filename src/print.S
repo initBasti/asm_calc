@@ -316,4 +316,162 @@ compute_output_interval:
     popq %rbp
     retq
 
+/* ======================================================
+ * Scale the output interval value up by the given factor
+ * and shift it to the right by the given shift value - 32.
+ * The result is interval of possible integer output values.
+ *
+ * parameter:
+ *  edi => output interval value (lower bound/mid/upper bound)
+ *  rsi => factor from the factor table
+ *  edx => shift value
+ *
+ * return:
+ *  eax => The shifted sum of the interval values multiplied with
+ *         a high and low factor
+ */
+scale_and_shift_output_interval:
+    pushq %rbp
+    pushq %r8
+    pushq %r9
+    pushq %r10
+    movq %rsp, %rbp
+    movl %edx, %r10d
 
+    movl %edi, %eax
+    movl %esi, %edx
+    /* (64bit)mantissa x (32bit)factor */
+    imulq %rdx, %rax
+    movq %rax, %r8
+    movl %edi, %eax
+    shrq $32, %rsi
+    movl %esi, %edx
+    /* (64bit)mantissa x (32bit)(factor >> 32) */
+    imulq %rdx, %rax
+    movq %rax, %r9
+    shrq $32, %r8
+    addq %r9, %r8
+    subl $32, %r10d
+    movl %r10d, %ecx
+    shrq %cl, %r8
+    movl %r8d, %eax
+
+    movq %rbp, %rsp
+    popq %r10
+    popq %r9
+    popq %r8
+    popq %rbp
+    retq
+
+/* ======================================================
+ * Convert every value of the output interval into integers.
+ * Use 64-bit arithmetic and use different steps, when the adjusted
+ * exponent is bigger than 0 (eg. if the input exponent is >= 2^153).
+ *
+ * The general forumula is:
+ *  result = ((a >> 32) + b) >> (c - 32)
+ *  where:
+ *  [adjusted exponent >= 0]
+ *      a = (64bit)Mantissa * factor_array[log10(2^exponent)]
+ *      b = (64bit)Mantissa * (factor_array[log10(2^exponent)] >> 32)
+ *      c = exponent * -1 + (32bit)log10(2^exponent) + 59
+ *        + ceil(log2(5^(32bit)log10(2^exponent))) -1
+ *  [adjusted exponent < 0]
+ *      a = (64bit)Mantissa * factor_array[factor_index]
+ *      b = (32bit)((64bit)Mantissa * (factor_array[factor_index] >> 32))
+ *      c = (32bit)exponent - ceil(log2(5^b)) - 61
+ *      factor_index = (exponent * -1) - (32bit)log10(5^(-1 * exponent))
+ *
+ * ** NOTE :
+ *  simplified version, only works correctly for ~96% of possible inputs **
+ *
+ * Stack map:
+ *  -92 => adj. exponent
+ *  -96 => adj. mantissa
+ *  -100 => low output interval
+ *  -104 => mid output interval
+ *  -108 => high output interval
+ *  -112 => low interval conversion
+ *  -116 => mid interval conversion
+ *  -120 => high interval conversion
+ */
+convert_output_interval:
+    pushq %rbp
+    movq %rsp, %rbp
+    pushq %r8 /* Factor index */
+    pushq %r9 /* Factor index case < 0 */
+    pushq %r10 /* Shift value */
+    pushq %r11 /* Factor */
+    xorq %r8, %r8
+    movl -92(%rbp), %eax
+    cmpl $0, %eax
+    jl .Lconvert_with_sub_zero_exponent
+    /* adjusted exponent >= 0:
+     * prepare factor array index & shift value */
+    movl %eax, %edi
+    callq log10pow2
+    movl %eax, %r8d
+    movl %r8d, %r10d
+    movl -92(%rbp), %eax
+    imull $-1, %eax
+    addl %eax, %r10d
+    addl $59, %r10d
+    movl %r8d, %edi
+    callq pow5bits
+    addl %eax, %r10d
+    subl $1, %r10d
+    /* Get the factor from the factor array */
+    leaq FLOAT_POW5_INV_SPLIT(%rip), %rax
+    leaq 0x0(,%r8,8), %r8
+    movq (%r8, %rax), %rax
+    movq %rax, %r11
+    jmp .Lperform_conversion
+.Lconvert_with_sub_zero_exponent:
+    /* adjusted exponent < 0:
+     * prepare factor array index & shift value */
+    imull $-1, %eax
+    movl %eax, %edi
+    callq log10pow5
+    movl %eax, %r8d
+    movl -92(%rbp), %eax
+    imull $-1, %eax
+    subl %r8d, %eax
+    movl %eax, %r9d
+    movl %r9d, %edi
+    callq pow5bits
+    subl $61, %eax
+    movl %r8d, %r10d
+    subl %eax, %r10d
+    /* Get the factor from the factor array */
+    leaq FLOAT_POW5_SPLIT(%rip), %rax
+    leaq 0x0(,%r9,8), %r9
+    movq (%r9, %rax), %rax
+    movq %rax, %r11
+.Lperform_conversion:
+    /* lower bound of output interval */
+    movl -100(%rbp), %edi
+    movq %r11, %rsi
+    movl %r10d, %edx
+    callq scale_and_shift_output_interval
+    movl %eax, -112(%rbp)
+    /* mid of output interval */
+    movl -104(%rbp), %edi
+    movq %r11, %rsi
+    movl %r10d, %edx
+    callq scale_and_shift_output_interval
+    movl %eax, -116(%rbp)
+    /* upper bound of output interval */
+    movl -108(%rbp), %edi
+    movq %r11, %rsi
+    movl %r10d, %edx
+    callq scale_and_shift_output_interval
+    movl %eax, -120(%rbp)
+
+.Lconvert_result:
+    popq %r11
+    popq %r10
+    popq %r9
+    popq %r8
+    movq %rbp, %rsp
+    popq %rbp
+    retq
