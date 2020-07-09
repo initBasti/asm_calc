@@ -4,6 +4,8 @@
 .globl _option_bits
 .globl _equation_array
 .globl _equation_array_length
+.globl FLOAT_POW5_INV_SPLIT
+.globl FLOAT_POW5_SPLIT
 
 .section .rodata
 invalidsequence: .string "Invalid sequence of elements\n"
@@ -20,6 +22,7 @@ _help_len: .word 0x06
     _option_bits: .word 0
     _equation_array: .quad 0
     _equation_array_length: .word 0
+.include "src/lookup_table.S"
 
 .text
 
@@ -29,10 +32,14 @@ _help_len: .word 0x06
 main:
     pushq %rbp
     movq %rsp, %rbp
+    pushq %r12
+    pushq %r13
 
     movl $1, %eax
     cmpl $4, %edi
     jb .Lprint_error_insufficient_arguments
+    movq %rdi, %r12
+    movq %rsi, %r13
     callq check_equation
     cmpb $1, %al
     je .Lprint_error_invalid_argument
@@ -42,22 +49,29 @@ main:
     cmpq $0x01, %rax
     je .Lhelp_option
 
+    movq %r12, %rdi
+    movq %r13, %rsi
     callq parse_equation
     cmpb $1, %al
     je .Lprint_error_invalid_number
     ja .Lprint_error_invalid_operator
 
+    movq %r12, %rdi
+    movq %r13, %rsi
     callq calculate_equation
-    movq %rax, %rdi
-    callq print_int
+    callq print_float
     callq linebreak
 .Lexit:
+    popq %r13
+    popq %r12
     movq %rbp, %rsp
     popq %rbp
     movl $0x3C, %eax
     movl $0x00, %edi
     syscall
 .Lerror_exit:
+    popq %r13
+    popq %r12
     movq %rbp, %rsp
     popq %rbp
     movl $0x3C, %eax
