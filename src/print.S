@@ -560,7 +560,6 @@ convert_output_interval:
     imull $-1, %eax
     pushq %rdi
     movq %rdi, %r8
-    /* TODO RDI is changed within here */
     movl %eax, %edi
     callq log10pow5
     popq %rdi
@@ -749,7 +748,7 @@ print_float:
     pushq %rbp
     movq %rsp, %rbp
     pushq %r12 /* sign bit */
-    leaq -100(%rbp), %rdi
+    leaq -160(%rbp), %rdi
     callq split_into_parts
     movl (%rdi), %r12d
     callq zero_check
