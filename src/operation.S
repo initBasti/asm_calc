@@ -26,11 +26,11 @@ calculate_equation:
     je .Leq_calc_next_precedence
     movq %rax, %r9
 
-    movq -8(%r10, %r9, 8), %rdi
+    vmovss -8(%r10, %r9, 8), %xmm0
     movq (%r10, %r9, 8), %rsi
-    movq 8(%r10, %r9, 8), %rdx
+    vmovss 8(%r10, %r9, 8), %xmm1
     callq operation
-    movq %rax, -8(%r10, %r9, 8)
+    vmovss %xmm0, -8(%r10, %r9, 8)
 
     movq %r9, %rdi
     movq %r9, %rsi
@@ -139,9 +139,9 @@ move_up_array:
  * Choose the correct operation from the operator number
  *
  * parameter:
- *  rdi => first number
+ *  xmm0 => first number
  *  rsi => operator (enum)
- *  rdx => second number
+ *  xmm1 => second number
  *
  *      1 (Addition)
  *      2 (Subtraction)
@@ -164,19 +164,16 @@ operation:
     cmpl $4, %esi
     je .Ldivision
 .Laddition:
-    addl %edi, %eax
-    addl %edx, %eax
+    vaddss %xmm1, %xmm0, %xmm0
     jmp .Loperation_exit
 .Lsubstraction:
-    addl %edi, %eax
-    subl %edx, %eax
+    vsubss %xmm1, %xmm0, %xmm0
     jmp .Loperation_exit
 .Lmultiplication:
-    imull %edi, %edx
-    movq %rdx, %rax
+    vmulss %xmm1, %xmm0, %xmm0
     jmp .Loperation_exit
 .Ldivision:
-    callq division
+    vdivss %xmm1, %xmm0, %xmm0
 .Loperation_exit:
     nop
     retq
