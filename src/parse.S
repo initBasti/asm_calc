@@ -1,75 +1,90 @@
 .include "src/check.S"
 
 /* =====================================================
- * Parse a equation to an array of integers, where every odd
- * element is a operator (see check.S:operator_value).
- * Save the array on the stack with an offset of 64 byte.
- *
- * parameters:
- *  rdi = number of parameters (argc)
- *  rsi = pointer to the address of the first parameter
- *
- * return:
- *  Success (0) | Invalid number (1) | Invalid operator (2)
+ * a ^ b
+ * parameter:
+ *  a (base) => rdi
+ *  b (exponent) => rsi
  */
-parse_equation:
-    pushq %rbp
-    movq %rsp, %rbp
-    xorq %r8, %r8 /* total amount of arguments */
-    xorq %r9, %r9 /* current index of the argument counter */
-    xorq %r10, %r10 /* current offset (index * 8) */
-    xorq %r11, %r11 /* length of the array */
-
-    movq %rdi, %r8
-    movq %rsi, %rbx
-
-    /* Create a offset of 64 bytes from the SP */
-    subq $64, %rsp
-    movq %r8, %rax
-    imulq $8, %rax
-    /* set the stack pointer to (SP - 64) - (argc * 8) */
-    subq %rax, %rsp
-    movq %rsp, _equation_array
-.Leq_parse_loop:
-    movq %r9, %r10
-    addq $1, %r10
-    imull $8, %r10d
-    movq (%rbx, %r10), %rdi
-    cmpq $0, %rdi
-    je .Leq_parse_next
-    callq string_check
-    cmpl $1, %eax
-    jb .Leq_parse_operator
-    ja .Leq_parse_next
-.Leq_parse_number:
-    callq parse_int
-    cmpl $0, %eax
-    je .Lerrornumber
-    movq %rax, (%rsp, %r9, 8)
-    incq %r11
-    jmp .Leq_parse_next
-.Leq_parse_operator:
-    callq operator_value
-    cmpl $0, %eax
-    je .Lerroroperator
-    movq %rax, (%rsp, %r9, 8)
-    incq %r11
-.Leq_parse_next:
-    addq $1, %r9
-    cmpq %r8, %r9
-    jb .Leq_parse_loop
-    movq $0, %rax
-    jmp .Leq_parse_return
-.Lerrornumber:
-    movq $1, %rax
-    jmp .Leq_parse_return
-.Lerroroperator:
-    movq $2, %rax
-.Leq_parse_return:
-    movl %r11d, _equation_array_length
-    movq %rbp, %rsp
-    popq %rbp
+power:
+    pushq %r8
+    movzbl %dil, %eax
+    movzbl %sil, %ebx
+    movl $1, %r8d
+.Lpower_loop:
+    movl %ebx, %ecx
+    andl $1, %ecx
+    jz .Levennumber
+    imull %eax, %r8d
+.Levennumber:
+    imull %eax, %eax
+    shrl $1, %ebx
+    cmpl $0, %ebx
+    ja .Lpower_loop
+    movl %r8d, %eax
+    nop
+    popq %r8
     retq
+
+/* =============================================
+ * Return the predefined value for the operator symbol
+ * This is called after operator_check, where the length
+ * of the string is tested.
+ * parameter:
+ *  rdi => string
+ * return:
+ *  '+' = 1 (Addition)
+ *  '-' = 2 (Subtraction)
+ *  'x' = 3 (Multiplication)
+ *  '/' = 4 (Division)
+ *  '^' = 5 (Exponantiation)
+ *  'R' = 6 (nth root of)
+ */
+operator_value:
+    pushq %rdi
+    pushq %r8
+
+    movzbl (%rdi), %eax
+    cmpb $0x2B, %al
+    jne .Lsubtract_value
+    movl $1, %r8d
+    jmp .Loperator_match
+.Lsubtract_value:
+    cmpb $0x2D, %al
+    jne .Lmultiply_value
+    movl $2, %r8d
+    jmp .Loperator_match
+.Lmultiply_value:
+    cmpb $0x78, %al
+    jne .Ldivsion_value
+    movl $3, %r8d
+    jmp .Loperator_match
+.Ldivsion_value:
+    cmpb $0x2F, %al
+    jne .Lexponantiation_value
+    movl $4, %r8d
+    jmp .Loperator_match
+.Lexponantiation_value:
+    cmpb $0x5E, %al
+    jne .Lroot_value
+    movl $5, %r8d
+    jmp .Loperator_match
+.Lroot_value:
+    cmpb $0x52, %al
+    jne .Linvalid_value
+    movl $6, %r8d
+    jmp .Loperator_match
+.Linvalid_value:
+    movl $0, %eax
+    popq %r8
+    popq %rdi
+    ret
+
+.Loperator_match:
+    movl %r8d, %eax
+    popq %r8
+    popq %rdi
+    ret
 
 /* =====================================================
  * Convert the integer part of the ASCII decimal representation
@@ -302,11 +317,10 @@ parse_float:
     cmpq $-0x01, %rax
     je .Lparse_float_invalid_number
     cmpq $0, %rax
-    je .Lparse_float_result
+    je .Lparse_float_return
 
     movq %rax, %rdi
     callq parse_fractal_part
-.Lparse_float_result:
     movaps %xmm2, %xmm1
     vaddss %xmm0, %xmm1, %xmm0
     vcvtsi2ss %r8d, %xmm1, %xmm1
@@ -321,135 +335,87 @@ parse_float:
     retq
 
 /* =====================================================
- * a ^ b
- * parameter:
- *  a (base) => rdi
- *  b (exponent) => rsi
- */
-power:
-    pushq %r8
-    movzbl %dil, %eax
-    movzbl %sil, %ebx
-    movl $1, %r8d
-.Lpower_loop:
-    movl %ebx, %ecx
-    andl $1, %ecx
-    jz .Levennumber
-    imull %eax, %r8d
-.Levennumber:
-    imull %eax, %eax
-    shrl $1, %ebx
-    cmpl $0, %ebx
-    ja .Lpower_loop
-    movl %r8d, %eax
-    nop
-    popq %r8
-    retq
-
-/* =====================================================
- * Get the length of a string
- * parameter:
- *  string (pointer to first char) => rdi
- */
-get_string_length:
-    pushq %r8
-    xorl %r8d, %r8d
-.Lget_string_length_loop:
-    movzbl (%rdi), %eax
-    testb %al, %al
-    je .Lfound_nullterminator
-    incl %r8d
-    incq %rdi
-    jmp .Lget_string_length_loop
-.Lfound_nullterminator:
-    movl %r8d, %eax
-    nop
-    popq %r8
-    retq
-
-/* =====================================================
- * Get the number of digits in a number
+ * Parse a equation to an array of integers, where every odd
+ * element is a operator (see check.S:operator_value).
+ * Save the array on the stack with an offset of 64 byte.
  *
- * As long as the given integer is greater than zero, assign the quotient
- * of the division: given integer / 10 to itself.
+ * parameters:
+ *  rdi = number of parameters (argc)
+ *  rsi = pointer to the address of the first parameter
  *
- * parameter:
- *  integer => rdi
- */
- get_number_of_digits:
-    pushq %rbx
-
-    /* idivl requires edx:eax as the dividend, zero edx and sign extend the number */
-    xorl %eax, %eax
-    movq %rdi, %rax
-    movl $10, %ebx
-.Lget_number_of_digits_loop:
-    cqto
-    idivl %ebx
-    incq %r8
-    cmpl $0, %eax
-    ja .Lget_number_of_digits_loop
-    movl %r8d, %eax
-    nop
-    popq %rbx
-    retq
-
-/* =============================================
- * Return the predefined value for the operator symbol
- * This is called after operator_check, where the length
- * of the string is tested.
- * parameter:
- *  rdi => string
  * return:
- *  '+' = 1 (Addition)
- *  '-' = 2 (Subtraction)
- *  'x' = 3 (Multiplication)
- *  '/' = 4 (Division)
- *  '^' = 5 (Exponantiation)
- *  'R' = 6 (nth root of)
+ *  Success (0) | Invalid number (1) | Invalid operator (2)
  */
-operator_value:
-    pushq %rdi
-    pushq %r8
+parse_equation:
+    pushq %rbp
+    movq %rsp, %rbp
+    pushq %rbx /* register for preserving the pointer to the array of arguments */
+    pushq %r12 /* number of arguments */
+    pushq %r13 /* current index of the argument counter */
+    pushq %r14 /* length of the array */
+    pushq %r15
 
-    movzbl (%rdi), %eax
-    cmpb $0x2B, %al
-    jne .Lsubtract_value
-    movl $1, %r8d
-    jmp .Loperator_match
-.Lsubtract_value:
-    cmpb $0x2D, %al
-    jne .Lmultiply_value
-    movl $2, %r8d
-    jmp .Loperator_match
-.Lmultiply_value:
-    cmpb $0x78, %al
-    jne .Ldivsion_value
-    movl $3, %r8d
-    jmp .Loperator_match
-.Ldivsion_value:
-    cmpb $0x2F, %al
-    jne .Lexponantiation_value
-    movl $4, %r8d
-    jmp .Loperator_match
-.Lexponantiation_value:
-    cmpb $0x5E, %al
-    jne .Lroot_value
-    movl $5, %r8d
-    jmp .Loperator_match
-.Lroot_value:
-    cmpb $0x52, %al
-    jne .Linvalid_value
-    movl $6, %r8d
-    jmp .Loperator_match
-.Linvalid_value:
+    xorq %r13, %r13
+    xorq %r14, %r14
+
+    movq %rdi, %r12
+    movq %rsi, %rbx
+
+    /* Create a offset of 64 bytes from the SP */
+    subq $64, %rsp
+    movq %r12, %rax
+    imulq $8, %rax
+    /* set the stack pointer to (SP - 64) - (argc * 8) */
+    subq %rax, %rsp
+    movq %rsp, _equation_array
+.Leq_parse_loop:
+    movq %r13, %rcx
+    addq $1, %rcx
+    imull $8, %ecx
+    movq (%rbx, %rcx), %r15
+    cmpq $0, %r15
+    je .Leq_parse_next
+    movq %r15, %rdi
+    callq string_check
+    cmpl $1, %eax
+    jb .Leq_parse_operator
+    ja .Leq_parse_next
+.Leq_parse_number:
+    movq %r15, %rdi
+    callq parse_float
     movl $0, %eax
-    popq %r8
-    popq %rdi
-    ret
+    vcvtsi2ss %eax, %xmm1, %xmm1
+    comiss %xmm1, %xmm0
+    je .Lerrornumber
+    vmovss %xmm0, (%rsp, %r13, 8)
+    incq %r14
+    jmp .Leq_parse_next
+.Leq_parse_operator:
+    movq %r15, %rdi
+    callq operator_value
+    cmpl $0, %eax
+    je .Lerroroperator
+    movq %rax, (%rsp, %r13, 8)
+    incq %r14
+.Leq_parse_next:
+    addq $1, %r13
+    cmpq %r12, %r13
+    jb .Leq_parse_loop
+    movq $0, %rax
+    jmp .Leq_parse_return
+.Lerrornumber:
+    movq $1, %rax
+    jmp .Leq_parse_return
+.Lerroroperator:
+    movq $2, %rax
+.Leq_parse_return:
+    movl %r14d, _equation_array_length
 
-.Loperator_match:
-    movl %r8d, %eax
-    popq %r8
-    popq %rdi
-    ret
+    popq %r15
+    popq %r14
+    popq %r13
+    popq %r12
+    popq %rbx
+    movq %rbp, %rsp
+    popq %rbp
+    retq
